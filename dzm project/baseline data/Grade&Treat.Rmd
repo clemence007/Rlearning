@@ -1,0 +1,101 @@
+---
+title: "分化程度与几线化疗"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+
+```{r}
+library(plyr)
+library(knitr)
+library(xlsx)
+```
+
+
+```{r pressure, echo=FALSE}
+
+adsldzm <- read.csv("/Users/xuchaoqun/statistics/tumour/东直门/东直门0809.csv",header = TRUE,fileEncoding = "GBK",na.strings="")
+namedata <- read.xlsx('/Users/xuchaoqun/statistics/tumour/东直门/introduction_dzm.xlsx',1)
+
+
+#根据医院要求修改变量chem_yn和Target_yn
+adsldzm$chem_yn <- ifelse(grepl('.*化疗.*',adsldzm$Trtcat),'是','否')
+adsldzm$Tartget_yn <- ifelse(grepl('.*靶向.*',adsldzm$Trtcat),'是','否')
+
+#数据预处理：年龄分组修正，bmi分组。
+adsldzm$bmiG <- ifelse(adsldzm$bmi<18.5,"低于正常值",ifelse(adsldzm$bmi<=23.9,"正常值","高于正常值"))
+adsldzm$bmiG <- factor(adsldzm$bmiG,levels = c('低于正常值','正常值','高于正常值'))
+adsldzm$age0 <- ifelse(adsldzm$age<=49,'<=49',ifelse(adsldzm$age<=69,'50-69','>=70'))
+adsldzm$age0 <- factor(adsldzm$age0,levels = c('<=49','50-69','>=70'))
+#adsldzm1是continue，adsldzm2是discrete
+adsldzm1 <- adsldzm[c('OS0','age','kps','height','weight','bmi','Anderson0','life_score0','TCM_Score0')]
+adsldzm2 <- adsldzm[8:45]
+adsldzm2 <- setdiff(adsldzm2,adsldzm1) #删去连续性
+adsldzm2 <- adsldzm2[-4] #删去last_visit_dat
+adsldzm2 <- adsldzm2[-14] #删去Pos0
+adsldzm2 <- cbind(adsldzm2,adsldzm$bmiG)#添加bmi分组
+adsldzm$Trtcat1 <- ifelse(grepl('.*化.*靶.*',adsldzm$Trtcat),'化疗+靶向',
+                          ifelse(grepl('.*化',adsldzm$Trtcat),'单独化疗','单独中药'))
+adsldzm2$Trtcat <- adsldzm$Trtcat1
+adsldzm$Trtcat2 <- ifelse(grepl('一线化疗.*',adsldzm$Trtcat),'一线化疗',
+                          ifelse(grepl('二线化疗.*',adsldzm$Trtcat),'二线化疗',                            ifelse(grepl('三线化疗.*',adsldzm$Trtcat),'三线化疗','单纯中药')))
+adsldzm2$neixu <- ifelse(grepl('心',adsldzm$neixu),'脾胃&心',ifelse(grepl('肾',adsldzm$neixu),'脾胃&肾',ifelse(grepl('肝',adsldzm$neixu),'脾胃&肝',ifelse(grepl('肺',adsldzm$neixu),'脾胃&肺','脾胃'))))
+adsldzm2$xieshi <- ifelse(grepl('湿',adsldzm$xieshi)&grepl('痰',adsldzm$xieshi)&grepl('瘀',adsldzm$xieshi),'痰湿瘀',
+                         ifelse(grepl('湿',adsldzm$xieshi)&grepl('痰',adsldzm$xieshi),'痰湿',
+                                ifelse(grepl('痰',adsldzm$xieshi)&grepl('瘀',adsldzm$xieshi),'痰瘀',
+                                       ifelse(grepl('湿',adsldzm$xieshi)&grepl('瘀',adsldzm$xieshi),'湿瘀',
+                                              ifelse(grepl('痰',adsldzm$xieshi),'痰',
+                                                     ifelse(grepl('湿',adsldzm$xieshi),'湿',
+                                                            ifelse(grepl('瘀',adsldzm$xieshi),'瘀',
+                                                                   ifelse(adsldzm$xieshi=='其他','其他','NA'))))))))
+adsldzm2$Trtcat <- factor(adsldzm2$Trtcat)
+adsldzm2$neixu <- factor(adsldzm2$neixu)
+adsldzm2$xieshi <- factor(adsldzm2$xieshi)
+adsldzm2$Censor <- factor(adsldzm2$Censor)
+adsldzm2$last_visit <- factor(adsldzm2$last_visit)
+
+```
+
+
+##不同分化程度与几线化疗的相关性
+
+```{r result = 'asis'}
+adsldzm$Grade <- factor(adsldzm$Grade,levels = c('未确定','未分化','低分化','中分化','高分化'))
+
+tb <- table(adsldzm$Grade,adsldzm$Trtcat2)
+tb1 <- addmargins(tb)
+kable(tb1,digits = 3)
+cat('\n')
+paste('Fisher精度检验的p值=',format(fisher.test(tb)$p.value,digits = 3))
+```
+
+##不同治疗方法对IV生存期有无影响
+
+将治疗方法分为三组，单独化疗组、化疗+靶向组、单独中药组，分析各组确诊IV期后的生存时间有无差别，结果如下：
+
+```{r result = 'asis'}
+
+#是否正态
+ntypea <- function(df){
+  data <- df
+  shapiro.test(data$OS0)$p.value
+}
+kable(ddply(adsldzm,.(Trtcat1),ntypea))
+cat('\n')
+#检验是否方差齐性
+b <- bartlett.test(OS0~Trtcat1,data = adsldzm)
+b <- t(c(b$statistic,b$parameter,b$p.value))
+cat('\n')
+kable(b)
+cat('\n')
+#方差齐性但是非正态分布，用非参数检验
+adsldzm$Trtcat1 <- factor(adsldzm$Trtcat1)
+k <- kruskal.test(OS0~Trtcat1,data = adsldzm)
+k <- data.frame(k[[1]],k[[2]],k[[3]])
+names(k) <- c('Kruskal-Wallis chi-squared','df','p-value')
+cat('\n')
+kable(k)
+```
