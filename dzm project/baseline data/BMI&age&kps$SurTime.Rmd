@@ -1,0 +1,72 @@
+---
+title: "BMI与年龄/卡氏评分/生存时间"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+
+```{r}
+library(plyr)
+library(knitr)
+library(xlsx)
+```
+
+```{r echo=FALSE}
+
+library(knitr)
+
+source('/Users/xuchaoqun/statistics/tumour/东直门/基线描述0805/数据预处理.R')
+source('/Users/xuchaoqun/statistics/tumour/东直门/基线描述0805/Function.R')
+
+dataProcessing()
+
+```
+
+### 不同组别与其他变量相关性检验
+
+```{r results = 'asis'}
+
+
+print('BMI年龄分析')
+ageG <- function(df){
+  return(continue(df['age']))
+}
+bmiGage <- ddply(adsldzm[c('bmiG','age')],.(bmiG),ageG)
+kable(bmiGage)
+cat('\n')
+print('BMI与卡氏评分分析')
+kpsG <- function(df){
+  return(continue(df['kps']))
+}
+bmiGkps <- ddply(adsldzm[c('bmiG','kps')],.(bmiG),kpsG)
+kable(bmiGkps)
+cat('\n')
+print('病理分化程度与性别')
+td <- table(adsldzm$Grade,adsldzm$sex)
+td1 <- addmargins(td)
+kable(td1)
+cat('\n')
+paste('卡方检验的p值=',format(chisq.test(td)$p.value,digits = 3))
+cat('\n')
+paste('Fisher精度检验的p值=',format(fisher.test(td)$p.value,digits = 3))
+cat('\n')
+print('病理分化程度与年龄交叉')
+cat('\n')
+age1 <- adsldzm$age[which(adsldzm$Grade=='中分化')]
+age2 <- adsldzm$age[which(adsldzm$Grade=='低分化')]
+age3 <- adsldzm$age[which(adsldzm$Grade=='未分化')]
+age4 <- adsldzm$age[which(adsldzm$Grade=='高分化')]
+paste('中分化组正态分布检验的p值',format(shapiro.test(age1)$p.value),nsmall=3)
+cat('\n')
+paste('低分化组正态分布检验的p值',format(shapiro.test(age2)$p.value),nsmall=3)
+cat('\n')
+#检验得两个都是正态的，可以用Kruskal-Wallis检验四组中位数差异
+newdata <- subset(adsldzm,Grade=='中分化'|Grade=='低分化')
+bartlett.test(age~Grade,data = newdata)
+cat('\n')
+t.test(age~Grade,data = newdata)
+cat('\n')
+```
