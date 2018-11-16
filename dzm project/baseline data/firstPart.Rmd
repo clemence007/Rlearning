@@ -1,0 +1,67 @@
+---
+title: "第一部分"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r echo=FALSE}
+
+library(knitr)
+
+source('/Users/xuchaoqun/statistics/tumour/东直门/基线描述0805/数据预处理.R')
+source('/Users/xuchaoqun/statistics/tumour/东直门/基线描述0805/Function.R')
+
+dataProcessing()
+
+```
+
+##一、基线描述
+
+###连续性变量描述
+
+```{r results = 'asis'}
+for (i in 1:ncol(adsldzm1)) {
+  vname <- as.character(namedata$LABEL[which(namedata$NAME==names(adsldzm1)[i])])
+  print(vname)
+  print(kable(continue(adsldzm1[,i]),digits = 3),caption=paste(vname,'分布表'))
+  cat("\n")
+}
+
+```
+
+###离散型变量描述
+
+```{r results = 'asis'}
+for (i in 1:ncol(adsldzm2)) {
+  vname <- as.character(namedata$LABEL[which(namedata$NAME==names(adsldzm2)[i])])
+  print(vname)
+  print(kable(discrete(adsldzm2[,i]), caption=paste(vname,'分布表')))
+  cat("\n")
+}
+kable(discrete(zzclass))
+```
+
+####绘图
+
+```{r}
+myhist('OS0',adsldzm1)
+myhist('age',adsldzm1)
+myhist('Anderson0',adsldzm1)
+mybar('组别',adsldzm2)
+mybar('bmiG',adsldzm2)
+mybar("Grade",adsldzm2)
+mybar("typea",adsldzm2)
+mybar("B_Lauren",adsldzm2)
+mybar("neixu",adsldzm2)
+mybar("xieshi",adsldzm2)
+mybar('zzclass',m)
+
+
+
+```
